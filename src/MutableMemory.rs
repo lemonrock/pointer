@@ -29,16 +29,37 @@ pub trait MutableMemory
 	fn writeBytes(self, source: *const u8, count: usize) -> usize;
 	
 	#[inline(always)]
-	fn writeU16AsNetworkByteOrderU16(self, size: u16) -> usize;
+	fn writeU16HostEndianOrder(self, value: u16) -> usize;
 	
 	#[inline(always)]
-	fn writeUsizeAsNetworkByteOrderU8(self, size: usize) -> usize;
+	fn writeU32HostEndianOrder(self, value: u32) -> usize;
 	
 	#[inline(always)]
-	fn writeUsizeAsNetworkByteOrderU16(self, size: usize) -> usize;
+	fn writeU64HostEndianOrder(self, value: u64) -> usize;
 	
 	#[inline(always)]
-	fn writeUsizeAsNetworkByteOrderU24(self, size: usize) -> usize;
+	fn writeI8HostEndianOrder(self, value: i8) -> usize;
+	
+	#[inline(always)]
+	fn writeI16HostEndianOrder(self, value: i16) -> usize;
+	
+	#[inline(always)]
+	fn writeI32HostEndianOrder(self, value: i32) -> usize;
+	
+	#[inline(always)]
+	fn writeI64HostEndianOrder(self, value: i64) -> usize;
+	
+	#[inline(always)]
+	fn writeU16AsNetworkByteOrderU16(self, value: u16) -> usize;
+	
+	#[inline(always)]
+	fn writeUsizeAsNetworkByteOrderU8(self, value: usize) -> usize;
+	
+	#[inline(always)]
+	fn writeUsizeAsNetworkByteOrderU16(self, value: usize) -> usize;
+	
+	#[inline(always)]
+	fn writeUsizeAsNetworkByteOrderU24(self, value: usize) -> usize;
 }
 
 impl MutableMemory for *mut u8
@@ -101,12 +122,68 @@ impl MutableMemory for *mut u8
 		
 		count
 	}
+	
+	#[inline(always)]
+	fn writeU16HostEndianOrder(self, value: u16) -> usize
+	{
+		let pointer = &value as *const u16 as *const u8;
+
+		self.writeBytes(pointer, 2)
+	}
+	
+	#[inline(always)]
+	fn writeU32HostEndianOrder(self, value: u32) -> usize
+	{
+		let pointer = &value as *const u32 as *const u8;
+
+		self.writeBytes(pointer, 4)
+	}
+	
+	#[inline(always)]
+	fn writeU64HostEndianOrder(self, value: u64) -> usize
+	{
+		let pointer = &value as *const u64 as *const u8;
+
+		self.writeBytes(pointer, 8)
+	}
+	
+	#[inline(always)]
+	fn writeI8HostEndianOrder(self, value: i8) -> usize
+	{
+		let pointer = &value as *const i8 as *const u8;
+
+		self.writeBytes(pointer, 1)
+	}
+	
+	#[inline(always)]
+	fn writeI16HostEndianOrder(self, value: i16) -> usize
+	{
+		let pointer = &value as *const i16 as *const u8;
+
+		self.writeBytes(pointer, 2)
+	}
+	
+	#[inline(always)]
+	fn writeI32HostEndianOrder(self, value: i32) -> usize
+	{
+		let pointer = &value as *const i32 as *const u8;
+
+		self.writeBytes(pointer, 4)
+	}
+	
+	#[inline(always)]
+	fn writeI64HostEndianOrder(self, value: i64) -> usize
+	{
+		let pointer = &value as *const i64 as *const u8;
+
+		self.writeBytes(pointer, 8)
+	}
 
 	#[allow(trivial_casts)]
 	#[inline(always)]
-	fn writeU16AsNetworkByteOrderU16(self, size: u16) -> usize
+	fn writeU16AsNetworkByteOrderU16(self, value: u16) -> usize
 	{
-		let pointer = &size as *const u16 as *const u8;
+		let pointer = &value as *const u16 as *const u8;
 		
 		#[cfg(target_endian = "little")]
 		unsafe
@@ -116,59 +193,55 @@ impl MutableMemory for *mut u8
 		}
 	
 		#[cfg(target_endian = "big")]
-		unsafe
 		{
-			self.writeBytes(*pointer, 2);
+			self.writeBytes(pointer, 2);
 		}
 		
 		2
 	}
 	
 	#[inline(always)]
-	fn writeUsizeAsNetworkByteOrderU8(self, size: usize) -> usize
+	fn writeUsizeAsNetworkByteOrderU8(self, value: usize) -> usize
 	{
-		debug_assert!(size < 256, "size is equal to or more than {}", 256);
+		debug_assert!(value < 256, "size is equal to or more than {}", 256);
 	
-		self.writeByte(size as u8)
+		self.writeByte(value as u8)
 	}
 
 	#[allow(trivial_casts)]
 	#[inline(always)]
-	fn writeUsizeAsNetworkByteOrderU16(self, size: usize) -> usize
+	fn writeUsizeAsNetworkByteOrderU16(self, value: usize) -> usize
 	{
-		debug_assert!(size < 65536, "size is equal to or more than {}", 65536);
+		debug_assert!(value < 65536, "size is equal to or more than {}", 65536);
 	
-		let pointer = &size as *const usize as *const u8;
+		let pointer = &value as *const usize as *const u8;
 	
 		#[cfg(target_endian = "little")]
 		unsafe
 		{
 			self.writeByte(*pointer.offsetUp(1));
 			self.writeByte(*pointer);
+			return 2;
 		}
 	
 		#[cfg(all(target_endian = "big", target_pointer_width = 32))]
-		unsafe
 		{
-			self.writeBytes(*pointer.offsetUp(2), 2);
+			return self.writeBytes(pointer.offsetUp(2), 2);
 		}
 	
 		#[cfg(all(target_endian = "big", target_pointer_width = 64))]
-		unsafe
 		{
-			self.writeBytes(*pointer.offsetUp(6), 2);
+			return self.writeBytes(pointer.offsetUp(6), 2);
 		}
-		
-		2
 	}
 
 	#[allow(trivial_casts)]
 	#[inline(always)]
-	fn writeUsizeAsNetworkByteOrderU24(self, size: usize) -> usize
+	fn writeUsizeAsNetworkByteOrderU24(self, value: usize) -> usize
 	{
-		debug_assert!(size < 16777216, "size is equal to or more than {}", 16777216);
+		debug_assert!(value < 16777216, "size is equal to or more than {}", 16777216);
 	
-		let pointer = &size as *const usize as *const u8;
+		let pointer = &value as *const usize as *const u8;
 	
 		#[cfg(target_endian = "little")]
 		unsafe
@@ -176,20 +249,17 @@ impl MutableMemory for *mut u8
 			self.writeByte(*pointer.offsetUp(2));
 			self.writeByte(*pointer.offsetUp(1));
 			self.writeByte(*pointer);
+			return 3;
 		}
 	
 		#[cfg(all(target_endian = "big", target_pointer_width = 32))]
-		unsafe
 		{
-			self.writeBytes(*pointer.offsetUp(1), 3);
+			return self.writeBytes(pointer.offsetUp(1), 3);
 		}
 	
 		#[cfg(all(target_endian = "big", target_pointer_width = 64))]
-		unsafe
 		{
-			self.writeBytes(*pointer.offsetUp(5), 3);
+			return self.writeBytes(pointer.offsetUp(5), 3);
 		}
-		
-		3
 	}
 }
